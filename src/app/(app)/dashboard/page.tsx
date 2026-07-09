@@ -1,35 +1,18 @@
-import { desc, gte, sql } from 'drizzle-orm';
-import { crmContacts, getDb } from '@/db';
+import Link from 'next/link';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { crmContacts, getDb, salesTasks } from '@/db';
 import { getSession } from '@/lib/auth';
 import { Badge, Card } from '@/components/ui';
-import type { BadgeVariant } from '@/components/ui';
+import { STAGE_LABELS, formatGbp, stageVariant } from '@/lib/stages';
 
 export const dynamic = 'force-dynamic';
 
-const STAGE_LABELS: Record<string, string> = {
-  new: 'New',
-  contacted: 'Contacted',
-  demo_scheduled: 'Demo scheduled',
-  demo_completed: 'Demo completed',
-  onboarding: 'Onboarding',
-  customer: 'Customer',
-  churned: 'Churned',
-  lost: 'Lost',
-};
-
-function stageVariant(stage: string): BadgeVariant {
-  if (stage === 'customer') return 'success';
-  if (stage === 'churned' || stage === 'lost') return 'error';
-  if (stage === 'new') return 'info';
-  return 'neutral';
-}
-
-function formatGbp(pence: number): string {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    maximumFractionDigits: 0,
-  }).format(pence / 100);
+interface DueTask {
+  id: string;
+  title: string;
+  dueAt: Date | null;
+  contactId: string | null;
+  contactName: string | null;
 }
 
 interface DashboardData {
@@ -45,6 +28,7 @@ interface DashboardData {
     source: string;
     createdAt: Date;
   }>;
+  dueTasks: DueTask[];
   dbError: boolean;
 }
 
@@ -55,7 +39,10 @@ async function loadDashboard(): Promise<DashboardData> {
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    const [totals, byStage, recent] = await Promise.all([
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const [totals, byStage, recent, dueTasks] = await Promise.all([
       db
         .select({
           total: sql<number>`count(*)::int`,
@@ -79,6 +66,19 @@ async function loadDashboard(): Promise<DashboardData> {
         .from(crmContacts)
         .orderBy(desc(crmContacts.createdAt))
         .limit(8),
+      db
+        .select({
+          id: salesTasks.id,
+          title: salesTasks.title,
+          dueAt: salesTasks.dueAt,
+          contactId: salesTasks.contactId,
+          contactName: crmContacts.name,
+        })
+        .from(salesTasks)
+        .leftJoin(crmContacts, eq(crmContacts.id, salesTasks.contactId))
+        .where(and(eq(salesTasks.status, 'open'), lt(salesTasks.dueAt, endOfToday)))
+        .orderBy(salesTasks.dueAt)
+        .limit(6),
     ]);
 
     return {
@@ -87,10 +87,19 @@ async function loadDashboard(): Promise<DashboardData> {
       byStage,
       pipelineValuePence: totals[0]?.pipelineValuePence ?? 0,
       recent,
+      dueTasks,
       dbError: false,
     };
   } catch {
-    return { total: 0, newThisMonth: 0, byStage: [], pipelineValuePence: 0, recent: [], dbError: true };
+    return {
+      total: 0,
+      newThisMonth: 0,
+      byStage: [],
+      pipelineValuePence: 0,
+      recent: [],
+      dueTasks: [],
+      dbError: true,
+    };
   }
 }
 
@@ -149,6 +158,31 @@ export default async function DashboardPage() {
           </p>
         </Card>
       </div>
+
+      {data.dueTasks.length > 0 && (
+        <Card title="Needs attention" description="Open tasks due today or overdue.">
+          <ul className="space-y-2">
+            {data.dueTasks.map((task) => (
+              <li key={task.id} className="flex items-center justify-between gap-2 text-sm">
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {task.title}
+                  {task.contactId && task.contactName && (
+                    <Link href={`/contacts/${task.contactId}`} className="underline ml-1" style={{ color: 'var(--brand-primary)' }}>
+                      {task.contactName}
+                    </Link>
+                  )}
+                </span>
+                <span className="text-xs shrink-0" style={{ color: 'var(--color-warning-text)' }}>
+                  {task.dueAt ? task.dueAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Link href="/tasks" className="mt-3 inline-block text-sm underline" style={{ color: 'var(--brand-primary)' }}>
+            All tasks →
+          </Link>
+        </Card>
+      )}
 
       <Card title="Pipeline by stage" description="Contacts in each stage of the sales funnel.">
         {byStage.length === 0 ? (

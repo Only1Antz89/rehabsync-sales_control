@@ -1,14 +1,17 @@
-import { Card } from '@/components/ui';
+import { PipelineBoard } from './PipelineBoard';
 
-export default function Page() {
+export default function PipelinePage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Pipeline</h1>
-      <Card>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          The drag-and-drop stage board arrives in M1 — it will manage the same crm_contacts data you can already see on the dashboard.
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          Pipeline
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Drag a lead between stages — every move is recorded on the contact&apos;s timeline.
         </p>
-      </Card>
+      </div>
+      <PipelineBoard />
     </div>
   );
 }

@@ -1,14 +1,17 @@
-import { Card } from '@/components/ui';
+import { TasksBoard } from './TasksBoard';
 
-export default function Page() {
+export default function TasksPage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Tasks</h1>
-      <Card>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Follow-up tasks and the due-today queue arrive in M1.
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          Tasks
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Follow-ups across the pipeline — grouped by urgency.
         </p>
-      </Card>
+      </div>
+      <TasksBoard />
     </div>
   );
 }

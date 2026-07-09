@@ -94,6 +94,11 @@ export const crmContacts = pgTable(
     meetingUrl: varchar('meeting_url', { length: 500 }),
     // Plain uuid (no FK import) — tenants is a main-platform table.
     tenantId: uuid('tenant_id'),
+    // Columns below are ADDITIVE, owned by this app (migration 0003).
+    tags: jsonb('tags').$type<string[]>().default([]).notNull(),
+    utm: jsonb('utm').$type<Record<string, string>>(),
+    sourceDetail: varchar('source_detail', { length: 160 }),
+    lastContactedAt: timestamp('last_contacted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -118,7 +123,34 @@ export const crmActivities = pgTable(
   (table) => [index('crm_activities_contact_idx').on(table.contactId)],
 );
 
-// ── Sales Centre tables (owned by this repo; DDL lands in migration 0002 at M1) ────────
+// ── Sales Centre tables (owned by this repo) ───────────────────────────────────────────
+
+export const SALES_TASK_TYPES = ['call', 'email', 'todo'] as const;
+export type SalesTaskType = (typeof SALES_TASK_TYPES)[number];
+
+export const SALES_TASK_STATUSES = ['open', 'done', 'cancelled'] as const;
+export type SalesTaskStatus = (typeof SALES_TASK_STATUSES)[number];
+
+export const salesTasks = pgTable(
+  'sales_tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contactId: uuid('contact_id').references(() => crmContacts.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 200 }).notNull(),
+    type: varchar('type', { length: 20 }).notNull().default('todo'),
+    assigneeEmail: varchar('assignee_email', { length: 255 }),
+    dueAt: timestamp('due_at'),
+    status: varchar('status', { length: 20 }).notNull().default('open'),
+    createdBy: varchar('created_by', { length: 255 }),
+    completedAt: timestamp('completed_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('sales_tasks_status_due_idx').on(table.status, table.dueAt),
+    index('sales_tasks_contact_idx').on(table.contactId),
+  ],
+);
 
 export const salesAuditLogs = pgTable(
   'sales_audit_logs',

@@ -1,14 +1,17 @@
-import { Card } from '@/components/ui';
+import { ContactsExplorer } from './ContactsExplorer';
 
-export default function Page() {
+export default function ContactsPage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Contacts</h1>
-      <Card>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          The filterable contact list and detail timeline arrive in M1.
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          Contacts
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Every lead in one place — search, filter by stage, and open a contact for the full timeline.
         </p>
-      </Card>
+      </div>
+      <ContactsExplorer />
     </div>
   );
 }
