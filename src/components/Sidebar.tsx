@@ -14,6 +14,8 @@ import {
   PanelsTopLeft,
   BarChart3,
   Settings,
+  MailX,
+  ScrollText,
   LogOut,
   Menu,
   X,
@@ -30,6 +32,8 @@ const ICONS = {
   forms: PanelsTopLeft,
   analytics: BarChart3,
   admin: Settings,
+  suppressions: MailX,
+  audit: ScrollText,
 } as const;
 
 interface NavItem {
@@ -67,7 +71,11 @@ function buildNav(isAdmin: boolean): NavGroup[] {
   if (isAdmin) {
     groups.push({
       groupName: 'Administration',
-      items: [{ label: 'Users & Settings', href: '/admin/users', icon: 'admin' }],
+      items: [
+        { label: 'Users & Settings', href: '/admin/users', icon: 'admin' },
+        { label: 'Suppressions', href: '/admin/suppressions', icon: 'suppressions' },
+        { label: 'Audit log', href: '/admin/audit', icon: 'audit' },
+      ],
     });
   }
   return groups;
