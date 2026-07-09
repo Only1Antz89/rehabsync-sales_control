@@ -14,3 +14,13 @@ export async function requireSession(): Promise<Session | NextResponse> {
 export function isResponse(value: Session | NextResponse): value is NextResponse {
   return value instanceof NextResponse;
 }
+
+/** Route-handler guard for admin-only endpoints (tool admin or platform super-admin). */
+export async function requireAdmin(): Promise<Session | NextResponse> {
+  const session = await requireSession();
+  if (isResponse(session)) return session;
+  if (session.role !== 'admin' && session.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  return session;
+}

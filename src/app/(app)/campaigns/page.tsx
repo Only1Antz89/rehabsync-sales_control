@@ -1,14 +1,24 @@
-import { Card } from '@/components/ui';
+import { getSession, isAdmin } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { CampaignsManager } from './CampaignsManager';
 
-export default function Page() {
+export const dynamic = 'force-dynamic';
+
+export default async function CampaignsPage() {
+  const session = await getSession();
+  if (!session) redirect('/login');
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Campaigns</h1>
-      <Card>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Email campaigns (segments, scheduling, SMTP2GO delivery and tracking) arrive in M2.
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          Campaigns
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Email a segment of the pipeline via SMTP2GO — tracked, suppressed-aware, one-click unsubscribe.
         </p>
-      </Card>
+      </div>
+      <CampaignsManager isAdmin={isAdmin(session)} />
     </div>
   );
 }

@@ -1,14 +1,17 @@
-import { Card } from '@/components/ui';
+import { TemplatesManager } from './TemplatesManager';
 
-export default function Page() {
+export default function TemplatesPage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Templates</h1>
-      <Card>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          The email template editor with merge tags arrives in M2.
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          Templates
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Reusable campaign emails with merge tags and a compliance footer.
         </p>
-      </Card>
+      </div>
+      <TemplatesManager />
     </div>
   );
 }

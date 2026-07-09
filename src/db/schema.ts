@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -151,6 +152,100 @@ export const salesTasks = pgTable(
     index('sales_tasks_contact_idx').on(table.contactId),
   ],
 );
+
+/** Audience filter stored on a campaign: empty arrays / missing keys mean "no filter". */
+export interface CampaignSegment {
+  stages?: string[];
+  tags?: string[];
+  sources?: string[];
+}
+
+export const CAMPAIGN_STATUSES = ['draft', 'scheduled', 'sending', 'sent', 'cancelled'] as const;
+export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
+
+export const salesCaptureForms = pgTable('sales_capture_forms', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: varchar('slug', { length: 60 }).unique().notNull(),
+  name: varchar('name', { length: 160 }).notNull(),
+  headline: varchar('headline', { length: 200 }),
+  sourceTag: varchar('source_tag', { length: 40 }).notNull().default('form'),
+  redirectUrl: text('redirect_url'),
+  active: boolean('active').notNull().default(true),
+  createdBy: varchar('created_by', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const salesEmailTemplates = pgTable('sales_email_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 160 }).notNull(),
+  subject: varchar('subject', { length: 255 }).notNull(),
+  html: text('html').notNull().default(''),
+  updatedBy: varchar('updated_by', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const salesCampaigns = pgTable(
+  'sales_campaigns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 160 }).notNull(),
+    templateId: uuid('template_id').references(() => salesEmailTemplates.id, { onDelete: 'set null' }),
+    segment: jsonb('segment').$type<CampaignSegment>().default({}).notNull(),
+    status: varchar('status', { length: 20 }).notNull().default('draft'),
+    scheduledAt: timestamp('scheduled_at'),
+    sentAt: timestamp('sent_at'),
+    createdBy: varchar('created_by', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('sales_campaigns_status_idx').on(table.status, table.scheduledAt)],
+);
+
+export const salesCampaignRecipients = pgTable(
+  'sales_campaign_recipients',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    campaignId: uuid('campaign_id')
+      .notNull()
+      .references(() => salesCampaigns.id, { onDelete: 'cascade' }),
+    contactId: uuid('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+    email: varchar('email', { length: 255 }).notNull(),
+    status: varchar('status', { length: 20 }).notNull().default('pending'),
+    messageId: varchar('message_id', { length: 160 }),
+    error: text('error'),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('sales_campaign_recipients_unique_idx').on(table.campaignId, table.email),
+    index('sales_campaign_recipients_status_idx').on(table.campaignId, table.status),
+    index('sales_campaign_recipients_msg_idx').on(table.messageId),
+  ],
+);
+
+export const salesEmailEvents = pgTable(
+  'sales_email_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    campaignId: uuid('campaign_id').references(() => salesCampaigns.id, { onDelete: 'cascade' }),
+    recipientId: uuid('recipient_id').references(() => salesCampaignRecipients.id, { onDelete: 'cascade' }),
+    email: varchar('email', { length: 255 }).notNull(),
+    event: varchar('event', { length: 20 }).notNull(),
+    url: text('url'),
+    raw: jsonb('raw').$type<Record<string, unknown>>().default({}).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [index('sales_email_events_campaign_idx').on(table.campaignId, table.event)],
+);
+
+export const salesSuppressions = pgTable('sales_suppressions', {
+  email: varchar('email', { length: 255 }).primaryKey(),
+  reason: varchar('reason', { length: 30 }).notNull().default('unsubscribed'),
+  source: varchar('source', { length: 60 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 export const salesAuditLogs = pgTable(
   'sales_audit_logs',

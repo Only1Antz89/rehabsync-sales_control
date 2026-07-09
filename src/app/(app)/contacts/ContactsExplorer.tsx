@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { Badge, Button, Card, Input } from '@/components/ui';
 import { STAGE_LABELS, STAGE_ORDER, formatGbp, stageVariant } from '@/lib/stages';
+import { CsvImport } from './CsvImport';
 
 interface ContactRow {
   id: string;
@@ -97,6 +98,7 @@ export function ContactsExplorer() {
         <Button onClick={() => setShowAdd((v) => !v)}>
           <Plus size={14} className="mr-1" /> Add contact
         </Button>
+        <CsvImport onImported={load} />
       </div>
 
       {showAdd && (
