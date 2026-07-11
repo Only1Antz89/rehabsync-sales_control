@@ -17,7 +17,7 @@ Merge the integration changes (branch `claude/rehabsync-equipment-mvp-5eww8m`), 
 
 1. Import `Only1Antz89/rehabsync-sales_control`, framework Next.js, root `/`.
 2. Attach domain `salescentre.rehabsync.app`; DNS: CNAME `salescentre` → `cname.vercel-dns.com`.
-3. Cron comes from `vercel.json` automatically: `send-campaigns` — requires `CRON_SECRET`.
+3. Scheduled sending — see **Scheduled jobs** below (external trigger on Hobby).
 
 ## 3. Environment variables (see `.env.example`)
 
@@ -47,6 +47,24 @@ Notes:
   renames, retypes or drops anything the main app reads.
 - `staff_*` tables are shared with Ads Centre (identical DDL — whichever repo migrates first
   creates them). Platform super-admins never need a staff account.
+
+## Scheduled jobs (Vercel Hobby)
+
+The campaign sender (`/api/cron/send-campaigns`) needs to run every few minutes. **Vercel's Hobby
+plan runs cron jobs at most once per day**, which is too infrequent, so there is no `vercel.json`
+in this repo — drive the job with an external scheduler hitting the secured endpoint:
+
+- **Endpoint:** `GET https://salescentre.rehabsync.app/api/cron/send-campaigns`
+- **Header:** `Authorization: Bearer <CRON_SECRET>`
+- **Frequency:** every ~5 minutes
+- Use any scheduler — [cron-job.org](https://cron-job.org), EasyCron, or a GitHub Actions
+  `schedule` workflow. The endpoint is idempotent and safe to call when there's nothing due.
+
+**On Vercel Pro** you can instead let Vercel run it — add `vercel.json`:
+
+```json
+{ "crons": [ { "path": "/api/cron/send-campaigns", "schedule": "*/5 * * * *" } ] }
+```
 
 ## 5. SMTP2GO
 
