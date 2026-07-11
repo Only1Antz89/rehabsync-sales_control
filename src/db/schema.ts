@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -95,17 +96,19 @@ export const crmContacts = pgTable(
     meetingUrl: varchar('meeting_url', { length: 500 }),
     // Plain uuid (no FK import) — tenants is a main-platform table.
     tenantId: uuid('tenant_id'),
-    // Columns below are ADDITIVE, owned by this app (migration 0003).
+    // Columns below are ADDITIVE, owned by this app (migrations 0003, 0005).
     tags: jsonb('tags').$type<string[]>().default([]).notNull(),
     utm: jsonb('utm').$type<Record<string, string>>(),
     sourceDetail: varchar('source_detail', { length: 160 }),
     lastContactedAt: timestamp('last_contacted_at'),
+    companyId: uuid('company_id'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [
     index('crm_contacts_stage_idx').on(table.stage),
     index('crm_contacts_email_idx').on(table.email),
+    index('crm_contacts_company_idx').on(table.companyId),
   ],
 );
 
@@ -125,6 +128,63 @@ export const crmActivities = pgTable(
 );
 
 // ── Sales Centre tables (owned by this repo) ───────────────────────────────────────────
+
+// Companies (accounts) — the clinic/organisation a set of contacts and deals belongs to.
+export const salesCompanies = pgTable(
+  'sales_companies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 200 }).notNull(),
+    domain: varchar('domain', { length: 255 }),
+    website: varchar('website', { length: 500 }),
+    industry: varchar('industry', { length: 120 }),
+    size: varchar('size', { length: 40 }),
+    phone: varchar('phone', { length: 40 }),
+    address: text('address'),
+    ownerName: varchar('owner_name', { length: 120 }),
+    tags: jsonb('tags').$type<string[]>().default([]).notNull(),
+    notes: text('notes'),
+    createdBy: varchar('created_by', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('sales_companies_name_idx').on(table.name)],
+);
+
+// Deals (opportunities) — first-class revenue objects, separate from a contact's lifecycle stage.
+export const DEAL_STAGES = ['qualification', 'discovery', 'proposal', 'negotiation'] as const;
+export type DealStage = (typeof DEAL_STAGES)[number];
+
+export const DEAL_STATUSES = ['open', 'won', 'lost'] as const;
+export type DealStatus = (typeof DEAL_STATUSES)[number];
+
+export const salesDeals = pgTable(
+  'sales_deals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: varchar('title', { length: 200 }).notNull(),
+    companyId: uuid('company_id').references(() => salesCompanies.id, { onDelete: 'set null' }),
+    contactId: uuid('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+    stage: varchar('stage', { length: 30 }).notNull().default('qualification'),
+    status: varchar('status', { length: 20 }).notNull().default('open'),
+    amountPence: integer('amount_pence').notNull().default(0),
+    currency: varchar('currency', { length: 3 }).notNull().default('GBP'),
+    probability: integer('probability'),
+    expectedCloseDate: date('expected_close_date'),
+    source: varchar('source', { length: 40 }),
+    ownerName: varchar('owner_name', { length: 120 }),
+    lostReason: text('lost_reason'),
+    createdBy: varchar('created_by', { length: 255 }),
+    closedAt: timestamp('closed_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('sales_deals_stage_status_idx').on(table.status, table.stage),
+    index('sales_deals_company_idx').on(table.companyId),
+    index('sales_deals_contact_idx').on(table.contactId),
+  ],
+);
 
 export const SALES_TASK_TYPES = ['call', 'email', 'todo'] as const;
 export type SalesTaskType = (typeof SALES_TASK_TYPES)[number];

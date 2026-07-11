@@ -16,6 +16,8 @@ import {
   Settings,
   MailX,
   ScrollText,
+  Handshake,
+  Building2,
   LogOut,
   Menu,
   X,
@@ -25,6 +27,8 @@ import { RehabSyncWordmark } from './ui';
 const ICONS = {
   dashboard: LayoutDashboard,
   pipeline: KanbanSquare,
+  deals: Handshake,
+  companies: Building2,
   contacts: Users,
   tasks: CheckSquare,
   campaigns: Send,
@@ -54,6 +58,8 @@ function buildNav(isAdmin: boolean): NavGroup[] {
       groupName: 'CRM',
       items: [
         { label: 'Pipeline', href: '/pipeline', icon: 'pipeline' },
+        { label: 'Deals', href: '/deals', icon: 'deals' },
+        { label: 'Companies', href: '/companies', icon: 'companies' },
         { label: 'Contacts', href: '/contacts', icon: 'contacts' },
         { label: 'Tasks', href: '/tasks', icon: 'tasks' },
       ],

@@ -52,6 +52,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     tags?: string[];
     meetingUrl?: string | null;
     scheduledAt?: string | null;
+    companyId?: string | null;
   } | null;
   if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 
@@ -85,6 +86,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.tags !== undefined) {
     values.tags = body.tags.map((t) => t.trim()).filter(Boolean).slice(0, 20);
   }
+  if (body.companyId !== undefined) values.companyId = body.companyId || null;
 
   const stageChanged =
     body.stage !== undefined &&
