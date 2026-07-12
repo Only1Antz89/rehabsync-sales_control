@@ -186,6 +186,31 @@ export const salesDeals = pgTable(
   ],
 );
 
+// Tracked 1:1 emails to a contact (distinct from bulk campaigns). SMTP2GO events update status.
+export const salesEmails = pgTable(
+  'sales_emails',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contactId: uuid('contact_id')
+      .notNull()
+      .references(() => crmContacts.id, { onDelete: 'cascade' }),
+    toEmail: varchar('to_email', { length: 255 }).notNull(),
+    subject: varchar('subject', { length: 255 }).notNull(),
+    status: varchar('status', { length: 20 }).notNull().default('sent'),
+    messageId: varchar('message_id', { length: 160 }),
+    error: text('error'),
+    createdBy: varchar('created_by', { length: 255 }),
+    sentAt: timestamp('sent_at'),
+    openedAt: timestamp('opened_at'),
+    clickedAt: timestamp('clicked_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('sales_emails_contact_idx').on(table.contactId),
+    index('sales_emails_msg_idx').on(table.messageId),
+  ],
+);
+
 export const SALES_TASK_TYPES = ['call', 'email', 'todo'] as const;
 export type SalesTaskType = (typeof SALES_TASK_TYPES)[number];
 

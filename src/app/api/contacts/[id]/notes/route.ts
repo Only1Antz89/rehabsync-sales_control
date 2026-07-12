@@ -4,7 +4,7 @@ import { crmActivities, crmContacts, getDb } from '@/db';
 import { isResponse, requireSession } from '@/lib/route-auth';
 import { recordAudit } from '@/lib/audit';
 
-const NOTE_TYPES = ['note', 'call', 'email'] as const;
+const NOTE_TYPES = ['note', 'call', 'meeting'] as const;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
@@ -29,8 +29,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .values({ contactId: id, type, body: text.slice(0, 4000), actorName: session.name })
     .returning();
 
-  // A logged call/email counts as contact — used by "last contacted" filters and analytics.
-  if (type === 'call' || type === 'email') {
+  // A logged call/meeting counts as contact — used by "last contacted" filters and analytics.
+  if (type === 'call' || type === 'meeting') {
     await db
       .update(crmContacts)
       .set({ lastContactedAt: new Date(), updatedAt: new Date() })

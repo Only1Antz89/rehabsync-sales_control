@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
-import { getDb, salesCampaignRecipients, salesEmailEvents, salesSuppressions } from '@/db';
+import {
+  crmActivities,
+  getDb,
+  salesCampaignRecipients,
+  salesEmailEvents,
+  salesEmails,
+  salesSuppressions,
+} from '@/db';
 
 /** SMTP2GO event webhook → per-recipient tracking. Verified via a shared secret
  *  (?secret= query or x-webhook-secret header, matching REHABSYNC_SMTP2GO_WEBHOOK_SECRET). */
@@ -86,6 +93,30 @@ export async function POST(req: Request) {
           .update(salesCampaignRecipients)
           .set({ status: nextStatus, updatedAt: new Date() })
           .where(eq(salesCampaignRecipients.id, recipient.id));
+      }
+    }
+
+    // 1:1 tracked emails share the same message_id space — advance their status + timeline.
+    if (messageId) {
+      const [oneToOne] = await db.select().from(salesEmails).where(eq(salesEmails.messageId, messageId)).limit(1);
+      if (oneToOne) {
+        const emailStatus = RECIPIENT_STATUS[kind];
+        const rank: Record<string, number> = { sent: 1, delivered: 2, opened: 3, clicked: 4, bounced: 5, failed: 0 };
+        const patch: Partial<typeof salesEmails.$inferInsert> = {};
+        if (emailStatus && (rank[emailStatus] ?? 0) > (rank[oneToOne.status] ?? 0)) patch.status = emailStatus;
+        if (kind === 'open' && !oneToOne.openedAt) patch.openedAt = new Date();
+        if (kind === 'click' && !oneToOne.clickedAt) patch.clickedAt = new Date();
+        if (Object.keys(patch).length > 0) {
+          await db.update(salesEmails).set(patch).where(eq(salesEmails.id, oneToOne.id));
+        }
+        if (kind === 'open' || kind === 'click') {
+          await db.insert(crmActivities).values({
+            contactId: oneToOne.contactId,
+            type: 'email',
+            body: `${kind === 'open' ? 'Opened' : 'Clicked'}: ${oneToOne.subject}`,
+            actorName: null,
+          });
+        }
       }
     }
 

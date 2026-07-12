@@ -46,7 +46,13 @@ function activityIcon(type: string) {
   if (type === 'stage_change') return <ArrowRightLeft size={14} />;
   if (type === 'call' || type === 'call_scheduled') return <Phone size={14} />;
   if (type === 'email') return <Mail size={14} />;
+  if (type === 'meeting') return <CalendarClock size={14} />;
   return <MessageSquare size={14} />;
+}
+
+interface Template {
+  id: string;
+  name: string;
 }
 
 function formatDateTime(iso: string): string {
@@ -72,9 +78,16 @@ export function ContactDetail({ id }: { id: string }) {
 
   // Composers
   const [noteText, setNoteText] = useState('');
-  const [noteType, setNoteType] = useState<'note' | 'call' | 'email'>('note');
+  const [noteType, setNoteType] = useState<'note' | 'call' | 'meeting'>('note');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDue, setTaskDue] = useState('');
+
+  // Email composer
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templateId, setTemplateId] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailHtml, setEmailHtml] = useState('');
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetch(`/api/contacts/${id}`)
@@ -96,7 +109,37 @@ export function ContactDetail({ id }: { id: string }) {
 
   useEffect(() => {
     load();
+    fetch('/api/templates')
+      .then((res) => (res.ok ? res.json() : { templates: [] }))
+      .then((d: { templates: Template[] }) => setTemplates(d.templates))
+      .catch(() => undefined);
   }, [load]);
+
+  async function sendEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy('email');
+    setError(null);
+    setEmailNotice(null);
+    try {
+      const res = await fetch(`/api/contacts/${id}/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: emailSubject, html: emailHtml, templateId: templateId || undefined }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string; skipped?: boolean } | null;
+      if (!res.ok) {
+        setError(data?.error ?? 'Could not send the email.');
+        return;
+      }
+      setEmailNotice(data?.skipped ? 'Email provider not configured — logged but not delivered.' : 'Email sent and logged to the timeline.');
+      setEmailSubject('');
+      setEmailHtml('');
+      setTemplateId('');
+      load();
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function patch(body: Record<string, unknown>, key: string) {
     setBusy(key);
@@ -294,6 +337,40 @@ export function ContactDetail({ id }: { id: string }) {
               </ul>
             )}
           </Card>
+
+          <Card title="Send email" description="A tracked 1:1 email — delivery, opens and clicks land on the timeline.">
+            <form onSubmit={sendEmail} className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="rounded-lg border px-3 py-2 text-sm flex-1 min-w-40"
+                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+                >
+                  <option value="">No template — write below</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <Input placeholder={templateId ? "Subject (leave blank to use the template's)" : 'Subject'} value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+              <textarea
+                value={emailHtml}
+                onChange={(e) => setEmailHtml(e.target.value)}
+                rows={4}
+                placeholder={templateId ? 'Leave blank to use the template body, or override here…' : 'Email body (HTML allowed). Merge tags: {{name}}, {{clinic_name}}.'}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+              />
+              <div className="flex items-center gap-3">
+                <Button type="submit" loading={busy === 'email'}>Send to {contact.email}</Button>
+                {emailNotice && <span className="text-sm" style={{ color: 'var(--color-success-text)' }}>{emailNotice}</span>}
+              </div>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Suppressed and unsubscribed addresses are refused. A one-click unsubscribe footer is added automatically.
+              </p>
+            </form>
+          </Card>
         </div>
 
         <Card title="Timeline" description="Notes, calls, emails and stage changes.">
@@ -309,13 +386,13 @@ export function ContactDetail({ id }: { id: string }) {
             <div className="flex items-center gap-2">
               <select
                 value={noteType}
-                onChange={(e) => setNoteType(e.target.value as 'note' | 'call' | 'email')}
+                onChange={(e) => setNoteType(e.target.value as 'note' | 'call' | 'meeting')}
                 className="rounded-lg border px-3 py-1.5 text-sm"
                 style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
               >
                 <option value="note">Note</option>
                 <option value="call">Call logged</option>
-                <option value="email">Email logged</option>
+                <option value="meeting">Meeting logged</option>
               </select>
               <Button type="submit" size="sm" loading={busy === 'note'}>
                 Add to timeline
