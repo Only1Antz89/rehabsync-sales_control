@@ -211,6 +211,54 @@ export const salesEmails = pgTable(
   ],
 );
 
+// Sequences (cadences) — an ordered list of steps run against enrolled contacts on a schedule.
+export interface SequenceStep {
+  type: 'email' | 'task';
+  delayDays: number; // days after the previous step (or enrolment) before this step runs
+  templateId?: string | null; // email steps: use a template…
+  subject?: string; // …or an inline subject/body
+  html?: string;
+  taskTitle?: string; // task steps
+}
+
+export const salesSequences = pgTable('sales_sequences', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 160 }).notNull(),
+  active: boolean('active').notNull().default(true),
+  steps: jsonb('steps').$type<SequenceStep[]>().default([]).notNull(),
+  enrollOnStage: varchar('enroll_on_stage', { length: 30 }),
+  createdBy: varchar('created_by', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const SEQUENCE_ENROLLMENT_STATUSES = ['active', 'completed', 'stopped'] as const;
+export type SequenceEnrollmentStatus = (typeof SEQUENCE_ENROLLMENT_STATUSES)[number];
+
+export const salesSequenceEnrollments = pgTable(
+  'sales_sequence_enrollments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sequenceId: uuid('sequence_id')
+      .notNull()
+      .references(() => salesSequences.id, { onDelete: 'cascade' }),
+    contactId: uuid('contact_id')
+      .notNull()
+      .references(() => crmContacts.id, { onDelete: 'cascade' }),
+    status: varchar('status', { length: 20 }).notNull().default('active'),
+    currentStep: integer('current_step').notNull().default(0),
+    nextRunAt: timestamp('next_run_at'),
+    lastError: text('last_error'),
+    enrolledBy: varchar('enrolled_by', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('sales_seq_enroll_unique_idx').on(table.sequenceId, table.contactId),
+    index('sales_seq_enroll_due_idx').on(table.status, table.nextRunAt),
+  ],
+);
+
 export const SALES_TASK_TYPES = ['call', 'email', 'todo'] as const;
 export type SalesTaskType = (typeof SALES_TASK_TYPES)[number];
 

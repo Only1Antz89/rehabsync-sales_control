@@ -55,6 +55,12 @@ interface Template {
   name: string;
 }
 
+interface Sequence {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
@@ -89,6 +95,11 @@ export function ContactDetail({ id }: { id: string }) {
   const [emailHtml, setEmailHtml] = useState('');
   const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
+  // Sequence enrolment
+  const [sequences, setSequences] = useState<Sequence[]>([]);
+  const [enrollSeqId, setEnrollSeqId] = useState('');
+  const [enrollNotice, setEnrollNotice] = useState<string | null>(null);
+
   const load = useCallback(() => {
     fetch(`/api/contacts/${id}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('load'))))
@@ -113,7 +124,36 @@ export function ContactDetail({ id }: { id: string }) {
       .then((res) => (res.ok ? res.json() : { templates: [] }))
       .then((d: { templates: Template[] }) => setTemplates(d.templates))
       .catch(() => undefined);
+    fetch('/api/sequences')
+      .then((res) => (res.ok ? res.json() : { sequences: [] }))
+      .then((d: { sequences: Sequence[] }) => setSequences(d.sequences.filter((s) => s.active)))
+      .catch(() => undefined);
   }, [load]);
+
+  async function enrollInSequence(e: React.FormEvent) {
+    e.preventDefault();
+    if (!enrollSeqId) return;
+    setBusy('enroll');
+    setError(null);
+    setEnrollNotice(null);
+    try {
+      const res = await fetch(`/api/sequences/${enrollSeqId}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactId: id }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        setEnrollNotice(data?.error ?? 'Could not enrol this contact.');
+        return;
+      }
+      setEnrollNotice('Enrolled — the first step is scheduled.');
+      setEnrollSeqId('');
+      load();
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function sendEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -370,6 +410,47 @@ export function ContactDetail({ id }: { id: string }) {
                 Suppressed and unsubscribed addresses are refused. A one-click unsubscribe footer is added automatically.
               </p>
             </form>
+          </Card>
+
+          <Card title="Sequences" description="Enrol this contact into an automated cadence of emails and follow-up tasks.">
+            {sequences.length === 0 ? (
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                No active sequences.{' '}
+                <Link href="/sequences" style={{ color: 'var(--brand-primary)' }}>
+                  Build one
+                </Link>{' '}
+                to start automating follow-ups.
+              </p>
+            ) : (
+              <form onSubmit={enrollInSequence} className="flex flex-wrap items-end gap-2">
+                <div className="flex-1 min-w-40">
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                    Sequence
+                  </label>
+                  <select
+                    value={enrollSeqId}
+                    onChange={(e) => setEnrollSeqId(e.target.value)}
+                    className="block w-full rounded-lg border px-3 py-2 text-sm"
+                    style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="">Choose…</option>
+                    {sequences.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="submit" loading={busy === 'enroll'} disabled={!enrollSeqId}>
+                  Enrol
+                </Button>
+                {enrollNotice && (
+                  <span className="w-full text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {enrollNotice}
+                  </span>
+                )}
+              </form>
+            )}
           </Card>
         </div>
 

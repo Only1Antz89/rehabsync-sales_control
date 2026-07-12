@@ -10,6 +10,7 @@ import {
   Users,
   CheckSquare,
   Send,
+  Workflow,
   FileText,
   PanelsTopLeft,
   BarChart3,
@@ -32,6 +33,7 @@ const ICONS = {
   contacts: Users,
   tasks: CheckSquare,
   campaigns: Send,
+  sequences: Workflow,
   templates: FileText,
   forms: PanelsTopLeft,
   analytics: BarChart3,
@@ -68,6 +70,7 @@ function buildNav(isAdmin: boolean): NavGroup[] {
       groupName: 'Marketing',
       items: [
         { label: 'Campaigns', href: '/campaigns', icon: 'campaigns' },
+        { label: 'Sequences', href: '/sequences', icon: 'sequences' },
         { label: 'Templates', href: '/templates', icon: 'templates' },
         { label: 'Capture Forms', href: '/forms', icon: 'forms' },
       ],

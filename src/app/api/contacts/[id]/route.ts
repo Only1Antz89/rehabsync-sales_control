@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import { CRM_STAGES, crmActivities, crmContacts, getDb, salesTasks } from '@/db';
 import { isResponse, requireSession } from '@/lib/route-auth';
 import { recordAudit } from '@/lib/audit';
+import { enrollOnStageEntered } from '@/lib/sequences';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
@@ -117,6 +118,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       from: existing.stage,
       to: body.stage,
     });
+    // Workflow automation: auto-enrol into any sequence configured for this stage.
+    if (body.stage) await enrollOnStageEntered(id, body.stage).catch(() => undefined);
   } else {
     await recordAudit(session, 'contact_updated', 'crm_contact', id, {
       changed: Object.keys(values).filter((k) => k !== 'updatedAt'),
