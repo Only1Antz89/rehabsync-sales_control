@@ -102,6 +102,8 @@ export const crmContacts = pgTable(
     sourceDetail: varchar('source_detail', { length: 160 }),
     lastContactedAt: timestamp('last_contacted_at'),
     companyId: uuid('company_id'),
+    // User-defined custom field values, keyed by sales_custom_fields.key (migration 0008).
+    customFields: jsonb('custom_fields').$type<Record<string, unknown>>().default({}).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -378,6 +380,53 @@ export const salesSuppressions = pgTable('sales_suppressions', {
   reason: varchar('reason', { length: 30 }).notNull().default('unsubscribed'),
   source: varchar('source', { length: 60 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ── P4: Custom fields (admin-defined fields on a contact) ──────────────────────────────
+export const CUSTOM_FIELD_TYPES = ['text', 'number', 'date', 'select', 'boolean'] as const;
+export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
+
+export const salesCustomFields = pgTable(
+  'sales_custom_fields',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    entity: varchar('entity', { length: 20 }).notNull().default('contact'),
+    key: varchar('key', { length: 60 }).notNull(),
+    label: varchar('label', { length: 120 }).notNull(),
+    type: varchar('type', { length: 20 }).notNull().default('text'),
+    options: jsonb('options').$type<string[]>().default([]).notNull(), // for `select`
+    sortOrder: integer('sort_order').notNull().default(0),
+    active: boolean('active').notNull().default(true),
+    createdBy: varchar('created_by', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex('sales_custom_fields_entity_key_idx').on(table.entity, table.key)],
+);
+
+// ── P4: Saved reports (ad-hoc report builder over contacts/deals) ───────────────────────
+export const REPORT_ENTITIES = ['contact', 'deal'] as const;
+export type ReportEntity = (typeof REPORT_ENTITIES)[number];
+
+export const REPORT_METRICS = ['count', 'sum_value'] as const;
+export type ReportMetric = (typeof REPORT_METRICS)[number];
+
+export interface ReportConfig {
+  entity: ReportEntity;
+  metric: ReportMetric;
+  groupBy: string; // dimension key (see lib/reports.ts DIMENSIONS)
+  stages?: string[]; // optional stage/status filter
+  owner?: string | null; // optional owner filter
+  sinceDays?: number | null; // only rows created within the last N days
+}
+
+export const salesReports = pgTable('sales_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 160 }).notNull(),
+  config: jsonb('config').$type<ReportConfig>().notNull(),
+  createdBy: varchar('created_by', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const salesAuditLogs = pgTable(

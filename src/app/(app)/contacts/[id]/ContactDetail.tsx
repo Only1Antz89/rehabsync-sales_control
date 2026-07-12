@@ -22,6 +22,7 @@ interface Contact {
   meetingUrl: string | null;
   scheduledAt: string | null;
   lastContactedAt: string | null;
+  customFields: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -58,6 +59,15 @@ interface Template {
 interface Sequence {
   id: string;
   name: string;
+  active: boolean;
+}
+
+interface CustomFieldDef {
+  id: string;
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'date' | 'select' | 'boolean';
+  options: string[];
   active: boolean;
 }
 
@@ -100,6 +110,11 @@ export function ContactDetail({ id }: { id: string }) {
   const [enrollSeqId, setEnrollSeqId] = useState('');
   const [enrollNotice, setEnrollNotice] = useState<string | null>(null);
 
+  // Custom fields
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDef[]>([]);
+  const [customValues, setCustomValues] = useState<Record<string, string | boolean>>({});
+  const [customSaved, setCustomSaved] = useState(false);
+
   const load = useCallback(() => {
     fetch(`/api/contacts/${id}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('load'))))
@@ -114,6 +129,12 @@ export function ContactDetail({ id }: { id: string }) {
         setOwnerName(d.contact.ownerName ?? '');
         setValueGbp(d.contact.estimatedValuePence != null ? (d.contact.estimatedValuePence / 100).toFixed(0) : '');
         setTags(d.contact.tags.join(', '));
+        const cf = (d.contact.customFields ?? {}) as Record<string, unknown>;
+        const initial: Record<string, string | boolean> = {};
+        for (const [k, v] of Object.entries(cf)) {
+          initial[k] = typeof v === 'boolean' ? v : v == null ? '' : String(v);
+        }
+        setCustomValues(initial);
       })
       .catch(() => setError('Could not load this contact.'));
   }, [id]);
@@ -128,7 +149,34 @@ export function ContactDetail({ id }: { id: string }) {
       .then((res) => (res.ok ? res.json() : { sequences: [] }))
       .then((d: { sequences: Sequence[] }) => setSequences(d.sequences.filter((s) => s.active)))
       .catch(() => undefined);
+    fetch('/api/custom-fields?entity=contact')
+      .then((res) => (res.ok ? res.json() : { fields: [] }))
+      .then((d: { fields: CustomFieldDef[] }) => setCustomFieldDefs(d.fields.filter((f) => f.active)))
+      .catch(() => undefined);
   }, [load]);
+
+  async function saveCustomFields(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy('customFields');
+    setCustomSaved(false);
+    setError(null);
+    try {
+      const res = await fetch(`/api/contacts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customFields: customValues }),
+      });
+      if (res.ok) {
+        setCustomSaved(true);
+        load();
+      } else {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(d?.error ?? 'Could not save custom fields.');
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function enrollInSequence(e: React.FormEvent) {
     e.preventDefault();
@@ -452,6 +500,60 @@ export function ContactDetail({ id }: { id: string }) {
               </form>
             )}
           </Card>
+
+          {customFieldDefs.length > 0 && (
+            <Card title="Custom fields">
+              <form onSubmit={saveCustomFields} className="space-y-3">
+                {customFieldDefs.map((f) => {
+                  if (f.type === 'boolean') {
+                    return (
+                      <label key={f.id} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                        <input
+                          type="checkbox"
+                          checked={customValues[f.key] === true}
+                          onChange={(e) => setCustomValues((p) => ({ ...p, [f.key]: e.target.checked }))}
+                        />
+                        {f.label}
+                      </label>
+                    );
+                  }
+                  if (f.type === 'select') {
+                    return (
+                      <div key={f.id}>
+                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                          {f.label}
+                        </label>
+                        <select
+                          value={String(customValues[f.key] ?? '')}
+                          onChange={(e) => setCustomValues((p) => ({ ...p, [f.key]: e.target.value }))}
+                          className="block w-full rounded-lg border px-3 py-2 text-sm"
+                          style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+                        >
+                          <option value="">—</option>
+                          {f.options.map((o) => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
+                  return (
+                    <Input
+                      key={f.id}
+                      label={f.label}
+                      type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
+                      value={String(customValues[f.key] ?? '')}
+                      onChange={(e) => setCustomValues((p) => ({ ...p, [f.key]: e.target.value }))}
+                    />
+                  );
+                })}
+                <div className="flex items-center gap-3">
+                  <Button type="submit" loading={busy === 'customFields'}>Save fields</Button>
+                  {customSaved && <span className="text-sm" style={{ color: 'var(--color-success-text)' }}>Saved.</span>}
+                </div>
+              </form>
+            </Card>
+          )}
         </div>
 
         <Card title="Timeline" description="Notes, calls, emails and stage changes.">

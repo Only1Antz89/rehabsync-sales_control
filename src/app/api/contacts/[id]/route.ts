@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { desc, eq } from 'drizzle-orm';
-import { CRM_STAGES, crmActivities, crmContacts, getDb, salesTasks } from '@/db';
+import { and, desc, eq } from 'drizzle-orm';
+import { CRM_STAGES, crmActivities, crmContacts, getDb, salesCustomFields, salesTasks } from '@/db';
 import { isResponse, requireSession } from '@/lib/route-auth';
 import { recordAudit } from '@/lib/audit';
 import { enrollOnStageEntered } from '@/lib/sequences';
+import { mergeCustomFields } from '@/lib/custom-fields';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
@@ -54,6 +55,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     meetingUrl?: string | null;
     scheduledAt?: string | null;
     companyId?: string | null;
+    customFields?: Record<string, unknown> | null;
   } | null;
   if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 
@@ -88,6 +90,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     values.tags = body.tags.map((t) => t.trim()).filter(Boolean).slice(0, 20);
   }
   if (body.companyId !== undefined) values.companyId = body.companyId || null;
+  if (body.customFields && typeof body.customFields === 'object') {
+    const defs = await db
+      .select()
+      .from(salesCustomFields)
+      .where(and(eq(salesCustomFields.entity, 'contact'), eq(salesCustomFields.active, true)));
+    const current = (existing.customFields ?? {}) as Record<string, unknown>;
+    values.customFields = mergeCustomFields(current, body.customFields, defs);
+  }
 
   const stageChanged =
     body.stage !== undefined &&

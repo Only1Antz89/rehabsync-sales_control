@@ -14,6 +14,8 @@ import {
   FileText,
   PanelsTopLeft,
   BarChart3,
+  FileBarChart,
+  SlidersHorizontal,
   Settings,
   MailX,
   ScrollText,
@@ -37,6 +39,8 @@ const ICONS = {
   templates: FileText,
   forms: PanelsTopLeft,
   analytics: BarChart3,
+  reports: FileBarChart,
+  customFields: SlidersHorizontal,
   admin: Settings,
   suppressions: MailX,
   audit: ScrollText,
@@ -75,13 +79,20 @@ function buildNav(isAdmin: boolean): NavGroup[] {
         { label: 'Capture Forms', href: '/forms', icon: 'forms' },
       ],
     },
-    { groupName: 'Insights', items: [{ label: 'Analytics', href: '/analytics', icon: 'analytics' }] },
+    {
+      groupName: 'Insights',
+      items: [
+        { label: 'Analytics', href: '/analytics', icon: 'analytics' },
+        { label: 'Reports', href: '/reports', icon: 'reports' },
+      ],
+    },
   ];
   if (isAdmin) {
     groups.push({
       groupName: 'Administration',
       items: [
         { label: 'Users & Settings', href: '/admin/users', icon: 'admin' },
+        { label: 'Custom fields', href: '/admin/custom-fields', icon: 'customFields' },
         { label: 'Suppressions', href: '/admin/suppressions', icon: 'suppressions' },
         { label: 'Audit log', href: '/admin/audit', icon: 'audit' },
       ],
