@@ -429,6 +429,17 @@ export const salesReports = pgTable('sales_reports', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ── Cron controller: per-job enable switch + last-run telemetry (managed in /admin/automation) ──
+export const salesCronJobs = pgTable('sales_cron_jobs', {
+  key: varchar('key', { length: 40 }).primaryKey(),
+  enabled: boolean('enabled').notNull().default(true),
+  lastRunAt: timestamp('last_run_at'),
+  lastStatus: varchar('last_status', { length: 20 }),
+  lastDetail: jsonb('last_detail').$type<Record<string, unknown>>(),
+  updatedBy: varchar('updated_by', { length: 255 }),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const salesAuditLogs = pgTable(
   'sales_audit_logs',
   {

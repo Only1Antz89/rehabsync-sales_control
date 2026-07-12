@@ -17,6 +17,7 @@ import {
   FileBarChart,
   SlidersHorizontal,
   Settings,
+  Timer,
   MailX,
   ScrollText,
   Handshake,
@@ -41,6 +42,7 @@ const ICONS = {
   analytics: BarChart3,
   reports: FileBarChart,
   customFields: SlidersHorizontal,
+  automation: Timer,
   admin: Settings,
   suppressions: MailX,
   audit: ScrollText,
@@ -93,6 +95,7 @@ function buildNav(isAdmin: boolean): NavGroup[] {
       items: [
         { label: 'Users & Settings', href: '/admin/users', icon: 'admin' },
         { label: 'Custom fields', href: '/admin/custom-fields', icon: 'customFields' },
+        { label: 'Automation', href: '/admin/automation', icon: 'automation' },
         { label: 'Suppressions', href: '/admin/suppressions', icon: 'suppressions' },
         { label: 'Audit log', href: '/admin/audit', icon: 'audit' },
       ],
