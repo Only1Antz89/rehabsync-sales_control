@@ -478,6 +478,20 @@ export const salesCronJobs = pgTable('sales_cron_jobs', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ── Lead routing: round-robin owner assignment for unowned inbound leads (singleton, id=1) ──
+export const ROUTING_STRATEGIES = ['round_robin'] as const;
+export type RoutingStrategy = (typeof ROUTING_STRATEGIES)[number];
+
+export const salesRouting = pgTable('sales_routing', {
+  id: integer('id').primaryKey().default(1),
+  enabled: boolean('enabled').notNull().default(false),
+  strategy: varchar('strategy', { length: 20 }).notNull().default('round_robin'),
+  pool: jsonb('pool').$type<string[]>().default([]).notNull(),
+  cursor: integer('cursor').notNull().default(0),
+  updatedBy: varchar('updated_by', { length: 255 }),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const salesAuditLogs = pgTable(
   'sales_audit_logs',
   {

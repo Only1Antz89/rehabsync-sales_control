@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
-import { crmContacts, getDb, salesCaptureForms } from '@/db';
+import { crmActivities, crmContacts, getDb, salesCaptureForms } from '@/db';
+import { assignOwner } from '@/lib/routing';
+import { recomputeLeadScore } from '@/lib/lead-score';
 
 // Public lead-capture endpoint: honeypot + per-IP rate limit; no auth by design.
 const hits = new Map<string, { count: number; resetAt: number }>();
@@ -54,7 +56,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     if (/^utm_[a-z]+$/.test(k) && typeof v === 'string') utm[k] = v.slice(0, 120);
   }
 
-  await getDb()
+  // Round-robin an owner for this unowned inbound lead (no-op when routing is disabled).
+  const owner = await assignOwner().catch(() => null);
+
+  const [inserted] = await getDb()
     .insert(crmContacts)
     .values({
       name: name.slice(0, 160),
@@ -64,8 +69,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       message: body?.message?.trim().slice(0, 2000) || null,
       source: form.sourceTag,
       sourceDetail: `capture form: ${form.name}`,
+      ownerName: owner,
       utm: Object.keys(utm).length ? utm : null,
+    })
+    .returning({ id: crmContacts.id });
+
+  if (inserted && owner) {
+    await getDb().insert(crmActivities).values({
+      contactId: inserted.id,
+      type: 'note',
+      body: `Auto-assigned to ${owner} by lead routing`,
+      actorName: 'Routing',
     });
+  }
+  if (inserted) await recomputeLeadScore(inserted.id).catch(() => undefined);
 
   return NextResponse.json({ ok: true, redirectUrl: form.redirectUrl });
 }
