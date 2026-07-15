@@ -36,6 +36,8 @@ export function DealsBoard() {
   const [overStage, setOverStage] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [provBusy, setProvBusy] = useState<string | null>(null);
+  const [provNotice, setProvNotice] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -99,6 +101,33 @@ export function DealsBoard() {
     if (!(await patch(id, { stage: toStage }))) {
       setDeals((prev) => prev?.map((d) => (d.id === id ? { ...d, stage: previous } : d)) ?? null);
       setError('Stage change failed — reverted.');
+    }
+  }
+
+  async function provision(id: string) {
+    setProvBusy(id);
+    setProvNotice(null);
+    try {
+      const res = await fetch(`/api/deals/${id}/provision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const d = (await res.json().catch(() => null)) as { provision?: { status: string; tenantId: string | null }; error?: string } | null;
+      if (!res.ok) {
+        setProvNotice(d?.error ?? 'Could not provision.');
+        return;
+      }
+      const p = d?.provision;
+      setProvNotice(
+        p?.status === 'provisioned'
+          ? `Tenant provisioned (${p.tenantId}) — linked to the contact & company.`
+          : p?.status === 'failed'
+            ? 'Provisioning failed — open the Provisioning queue to retry.'
+            : 'Queued for provisioning — complete it in the Provisioning queue.',
+      );
+    } finally {
+      setProvBusy(null);
     }
   }
 
@@ -279,12 +308,28 @@ export function DealsBoard() {
           <summary className="text-sm font-medium cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
             Closed ({totals.wonCount} won · {totals.lostCount} lost)
           </summary>
+          {provNotice && (
+            <p className="mt-3 text-sm rounded-lg border-l-4 p-2" style={{ borderColor: 'var(--brand-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+              {provNotice} <a href="/provisioning" style={{ color: 'var(--brand-primary)' }}>Open queue →</a>
+            </p>
+          )}
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {closed.map((card) => (
               <div key={card.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2" style={{ borderColor: 'var(--border-primary)' }}>
-                <span className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{card.title}</span>
+                <span className="text-sm truncate min-w-0" style={{ color: 'var(--text-primary)' }}>{card.title}</span>
                 <span className="flex items-center gap-2 shrink-0">
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatGbp(card.amountPence)}</span>
+                  {card.status === 'won' && (
+                    <button
+                      onClick={() => void provision(card.id)}
+                      disabled={provBusy === card.id}
+                      className="text-xs font-medium px-2 py-1 rounded"
+                      style={{ backgroundColor: 'var(--brand-primary)', color: '#fff' }}
+                      title="Provision a platform tenant from this won deal"
+                    >
+                      {provBusy === card.id ? '…' : '→ Tenant'}
+                    </button>
+                  )}
                   <Badge variant={card.status === 'won' ? 'success' : 'error'}>{card.status}</Badge>
                 </span>
               </div>

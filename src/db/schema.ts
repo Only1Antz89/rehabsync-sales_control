@@ -146,11 +146,37 @@ export const salesCompanies = pgTable(
     ownerName: varchar('owner_name', { length: 120 }),
     tags: jsonb('tags').$type<string[]>().default([]).notNull(),
     notes: text('notes'),
+    // Set when a won deal for this company provisions a platform tenant (migration 0010).
+    tenantId: uuid('tenant_id'),
     createdBy: varchar('created_by', { length: 255 }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [index('sales_companies_name_idx').on(table.name)],
+);
+
+// ── Won-deal → tenant provisioning bridge (links Sales to Admin Centre / the platform) ──
+export const TENANT_PROVISION_STATUSES = ['pending', 'provisioned', 'failed'] as const;
+export type TenantProvisionStatus = (typeof TENANT_PROVISION_STATUSES)[number];
+
+export const salesTenantProvisions = pgTable(
+  'sales_tenant_provisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    dealId: uuid('deal_id').references(() => salesDeals.id, { onDelete: 'set null' }),
+    contactId: uuid('contact_id'),
+    companyId: uuid('company_id'),
+    clinicName: varchar('clinic_name', { length: 200 }).notNull(),
+    billingEmail: varchar('billing_email', { length: 255 }).notNull(),
+    tenantId: uuid('tenant_id'),
+    tenantSlug: varchar('tenant_slug', { length: 200 }),
+    status: varchar('status', { length: 20 }).notNull().default('pending'),
+    error: text('error'),
+    requestedBy: varchar('requested_by', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    provisionedAt: timestamp('provisioned_at'),
+  },
+  (table) => [uniqueIndex('sales_tenant_provisions_deal_idx').on(table.dealId)],
 );
 
 // Deals (opportunities) — first-class revenue objects, separate from a contact's lifecycle stage.

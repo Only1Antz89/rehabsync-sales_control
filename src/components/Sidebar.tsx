@@ -22,6 +22,7 @@ import {
   ScrollText,
   Handshake,
   Building2,
+  Rocket,
   LogOut,
   Menu,
   X,
@@ -32,6 +33,7 @@ const ICONS = {
   dashboard: LayoutDashboard,
   pipeline: KanbanSquare,
   deals: Handshake,
+  provisioning: Rocket,
   companies: Building2,
   contacts: Users,
   tasks: CheckSquare,
@@ -67,6 +69,7 @@ function buildNav(isAdmin: boolean): NavGroup[] {
       items: [
         { label: 'Pipeline', href: '/pipeline', icon: 'pipeline' },
         { label: 'Deals', href: '/deals', icon: 'deals' },
+        { label: 'Provisioning', href: '/provisioning', icon: 'provisioning' },
         { label: 'Companies', href: '/companies', icon: 'companies' },
         { label: 'Contacts', href: '/contacts', icon: 'contacts' },
         { label: 'Tasks', href: '/tasks', icon: 'tasks' },
