@@ -23,6 +23,7 @@ import {
   ScrollText,
   Handshake,
   Building2,
+  CalendarClock,
   Rocket,
   LogOut,
   Menu,
@@ -38,6 +39,7 @@ const ICONS = {
   companies: Building2,
   contacts: Users,
   tasks: CheckSquare,
+  meetings: CalendarClock,
   campaigns: Send,
   sequences: Workflow,
   templates: FileText,
@@ -75,6 +77,7 @@ function buildNav(isAdmin: boolean): NavGroup[] {
         { label: 'Companies', href: '/companies', icon: 'companies' },
         { label: 'Contacts', href: '/contacts', icon: 'contacts' },
         { label: 'Tasks', href: '/tasks', icon: 'tasks' },
+        { label: 'Meetings', href: '/meetings', icon: 'meetings' },
       ],
     },
     {

@@ -45,6 +45,15 @@ interface Task {
   assigneeEmail: string | null;
 }
 
+interface Meeting {
+  id: string;
+  title: string;
+  startsAt: string;
+  durationMin: number;
+  location: string | null;
+  status: string;
+}
+
 function activityIcon(type: string) {
   if (type === 'stage_change') return <ArrowRightLeft size={14} />;
   if (type === 'call' || type === 'call_scheduled') return <Phone size={14} />;
@@ -108,6 +117,13 @@ export function ContactDetail({ id }: { id: string }) {
   const [emailHtml, setEmailHtml] = useState('');
   const [emailNotice, setEmailNotice] = useState<string | null>(null);
 
+  // Meetings
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [mtgTitle, setMtgTitle] = useState('');
+  const [mtgStart, setMtgStart] = useState('');
+  const [mtgDuration, setMtgDuration] = useState('30');
+  const [mtgLocation, setMtgLocation] = useState('');
+
   // Sequence enrolment
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [enrollSeqId, setEnrollSeqId] = useState('');
@@ -142,8 +158,16 @@ export function ContactDetail({ id }: { id: string }) {
       .catch(() => setError('Could not load this contact.'));
   }, [id]);
 
+  const loadMeetings = useCallback(() => {
+    fetch(`/api/contacts/${id}/meetings`)
+      .then((res) => (res.ok ? res.json() : { meetings: [] }))
+      .then((d: { meetings: Meeting[] }) => setMeetings(d.meetings))
+      .catch(() => undefined);
+  }, [id]);
+
   useEffect(() => {
     load();
+    loadMeetings();
     fetch('/api/templates')
       .then((res) => (res.ok ? res.json() : { templates: [] }))
       .then((d: { templates: Template[] }) => setTemplates(d.templates))
@@ -156,7 +180,7 @@ export function ContactDetail({ id }: { id: string }) {
       .then((res) => (res.ok ? res.json() : { fields: [] }))
       .then((d: { fields: CustomFieldDef[] }) => setCustomFieldDefs(d.fields.filter((f) => f.active)))
       .catch(() => undefined);
-  }, [load]);
+  }, [load, loadMeetings]);
 
   async function saveCustomFields(e: React.FormEvent) {
     e.preventDefault();
@@ -200,6 +224,52 @@ export function ContactDetail({ id }: { id: string }) {
       }
       setEnrollNotice('Enrolled — the first step is scheduled.');
       setEnrollSeqId('');
+      load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function bookMeeting(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mtgTitle.trim() || !mtgStart) return;
+    setBusy('meeting');
+    setError(null);
+    try {
+      const res = await fetch(`/api/contacts/${id}/meetings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: mtgTitle,
+          startsAt: new Date(mtgStart).toISOString(),
+          durationMin: Number(mtgDuration) || 30,
+          location: mtgLocation || undefined,
+        }),
+      });
+      if (res.ok) {
+        setMtgTitle('');
+        setMtgStart('');
+        setMtgLocation('');
+        loadMeetings();
+        load();
+      } else {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(d?.error ?? 'Could not book the meeting.');
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function setMeetingStatus(meetingId: string, status: string) {
+    setBusy(meetingId);
+    try {
+      await fetch(`/api/meetings/${meetingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      loadMeetings();
       load();
     } finally {
       setBusy(null);
@@ -448,6 +518,68 @@ export function ContactDetail({ id }: { id: string }) {
                         <CalendarClock size={12} /> {new Date(task.dueAt).toLocaleDateString('en-GB')}
                       </span>
                     )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card title="Meetings" description="Schedule and track calls or demos with this contact.">
+            <form onSubmit={bookMeeting} className="space-y-2 mb-3">
+              <Input placeholder="e.g. Product demo" value={mtgTitle} onChange={(e) => setMtgTitle(e.target.value)} />
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="datetime-local"
+                  value={mtgStart}
+                  onChange={(e) => setMtgStart(e.target.value)}
+                  className="rounded-lg border px-3 py-2 text-sm flex-1 min-w-44"
+                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+                />
+                <input
+                  type="number"
+                  min={5}
+                  step={5}
+                  value={mtgDuration}
+                  onChange={(e) => setMtgDuration(e.target.value)}
+                  title="Duration (minutes)"
+                  className="rounded-lg border px-3 py-2 text-sm w-24"
+                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <Input placeholder="Location or video link (optional)" value={mtgLocation} onChange={(e) => setMtgLocation(e.target.value)} />
+              <Button type="submit" size="sm" loading={busy === 'meeting'} disabled={!mtgTitle.trim() || !mtgStart}>
+                Book meeting
+              </Button>
+            </form>
+            {meetings.length === 0 ? (
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No meetings yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {meetings.map((m) => (
+                  <li key={m.id} className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p
+                        className="text-sm truncate"
+                        style={{ color: 'var(--text-primary)', textDecoration: m.status === 'cancelled' ? 'line-through' : 'none' }}
+                      >
+                        {m.title}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {formatDateTime(m.startsAt)} · {m.durationMin}m{m.location ? ` · ${m.location}` : ''}
+                      </p>
+                    </div>
+                    <select
+                      value={m.status}
+                      onChange={(e) => void setMeetingStatus(m.id, e.target.value)}
+                      disabled={busy === m.id}
+                      className="rounded-lg border px-2 py-1 text-xs"
+                      style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="scheduled">Scheduled</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="no_show">No-show</option>
+                    </select>
                   </li>
                 ))}
               </ul>

@@ -478,6 +478,33 @@ export const salesCronJobs = pgTable('sales_cron_jobs', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ── Meeting booking: scheduled meetings against a contact ──────────────────────────────
+export const MEETING_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const;
+export type MeetingStatus = (typeof MEETING_STATUSES)[number];
+
+export const salesMeetings = pgTable(
+  'sales_meetings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contactId: uuid('contact_id')
+      .notNull()
+      .references(() => crmContacts.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 200 }).notNull(),
+    startsAt: timestamp('starts_at').notNull(),
+    durationMin: integer('duration_min').notNull().default(30),
+    location: varchar('location', { length: 500 }),
+    notes: text('notes'),
+    status: varchar('status', { length: 20 }).notNull().default('scheduled'),
+    createdBy: varchar('created_by', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('sales_meetings_contact_idx').on(table.contactId),
+    index('sales_meetings_upcoming_idx').on(table.status, table.startsAt),
+  ],
+);
+
 // ── Lead routing: round-robin owner assignment for unowned inbound leads (singleton, id=1) ──
 export const ROUTING_STRATEGIES = ['round_robin'] as const;
 export type RoutingStrategy = (typeof ROUTING_STRATEGIES)[number];
