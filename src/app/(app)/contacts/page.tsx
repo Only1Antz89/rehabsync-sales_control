@@ -1,6 +1,11 @@
+import { getSession } from '@/lib/auth';
 import { ContactsExplorer } from './ContactsExplorer';
 
-export default function ContactsPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function ContactsPage() {
+  const session = await getSession();
+  const isAdmin = session?.role === 'admin' || session?.role === 'super_admin';
   return (
     <div className="space-y-4">
       <div>
@@ -8,10 +13,10 @@ export default function ContactsPage() {
           Contacts
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-          Every lead in one place — search, filter by stage, and open a contact for the full timeline.
+          Every lead in one place — search, filter by stage, run bulk actions, export, and merge duplicates.
         </p>
       </div>
-      <ContactsExplorer />
+      <ContactsExplorer isAdmin={isAdmin} />
     </div>
   );
 }

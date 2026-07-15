@@ -1,31 +1,17 @@
 import { NextResponse } from 'next/server';
-import { and, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, desc } from 'drizzle-orm';
 import { CRM_STAGES, crmContacts, getDb } from '@/db';
 import type { CrmStage } from '@/db';
 import { isResponse, requireSession } from '@/lib/route-auth';
 import { recordAudit } from '@/lib/audit';
+import { buildContactConditions } from '@/lib/contact-query';
 
 export async function GET(req: Request) {
   const session = await requireSession();
   if (isResponse(session)) return session;
 
   const url = new URL(req.url);
-  const q = url.searchParams.get('q')?.trim();
-  const stage = url.searchParams.get('stage')?.trim();
-
-  const conditions = [];
-  if (q) {
-    conditions.push(
-      or(
-        ilike(crmContacts.name, `%${q}%`),
-        ilike(crmContacts.email, `%${q}%`),
-        ilike(crmContacts.clinicName, `%${q}%`),
-      ),
-    );
-  }
-  if (stage && (CRM_STAGES as readonly string[]).includes(stage)) {
-    conditions.push(eq(crmContacts.stage, stage));
-  }
+  const conditions = buildContactConditions(url.searchParams.get('q'), url.searchParams.get('stage'));
 
   const rows = await getDb()
     .select({
