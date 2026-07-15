@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Copy, Download, Plus, X } from 'lucide-react';
+import { Copy, Download, Plus, TrendingUp, X } from 'lucide-react';
 import { Badge, Button, Card, Input } from '@/components/ui';
 import { STAGE_LABELS, STAGE_ORDER, formatGbp, stageVariant } from '@/lib/stages';
 import { CsvImport } from './CsvImport';
@@ -19,8 +19,13 @@ interface ContactRow {
   ownerName: string | null;
   estimatedValuePence: number | null;
   tags: string[];
+  leadScore: number;
   lastContactedAt: string | null;
   createdAt: string;
+}
+
+function scoreVariant(score: number): 'success' | 'warning' | 'neutral' {
+  return score >= 70 ? 'success' : score >= 40 ? 'warning' : 'neutral';
 }
 
 interface SequenceOption {
@@ -53,16 +58,18 @@ export function ContactsExplorer({ isAdmin }: { isAdmin: boolean }) {
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const [sequences, setSequences] = useState<SequenceOption[]>([]);
   const [showDupes, setShowDupes] = useState(false);
+  const [sortByScore, setSortByScore] = useState(false);
 
   const load = useCallback(() => {
     const params = new URLSearchParams();
     if (q.trim()) params.set('q', q.trim());
     if (stage) params.set('stage', stage);
+    if (sortByScore) params.set('sort', 'score');
     fetch(`/api/contacts?${params}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('load'))))
       .then((d: { contacts: ContactRow[] }) => setContacts(d.contacts))
       .catch(() => setError('Could not load contacts.'));
-  }, [q, stage]);
+  }, [q, stage, sortByScore]);
 
   useEffect(() => {
     const t = setTimeout(load, 250); // debounce search
@@ -212,6 +219,13 @@ export function ContactsExplorer({ isAdmin }: { isAdmin: boolean }) {
         <Button variant={showDupes ? 'primary' : 'secondary'} onClick={() => setShowDupes((v) => !v)}>
           <Copy size={14} className="mr-1.5" /> Duplicates
         </Button>
+        <Button
+          variant={sortByScore ? 'primary' : 'secondary'}
+          onClick={() => setSortByScore((v) => !v)}
+          title="Sort by lead score"
+        >
+          <TrendingUp size={14} className="mr-1.5" /> Score
+        </Button>
         <CsvImport onImported={load} />
       </div>
 
@@ -358,6 +372,7 @@ export function ContactsExplorer({ isAdmin }: { isAdmin: boolean }) {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Clinic</th>
                 <th className="px-4 py-3">Stage</th>
+                <th className="px-4 py-3">Score</th>
                 <th className="px-4 py-3">Source</th>
                 <th className="px-4 py-3">Owner</th>
                 <th className="px-4 py-3 text-right">Value</th>
@@ -387,6 +402,9 @@ export function ContactsExplorer({ isAdmin }: { isAdmin: boolean }) {
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={stageVariant(contact.stage)}>{STAGE_LABELS[contact.stage] ?? contact.stage}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={scoreVariant(contact.leadScore)}>{contact.leadScore}</Badge>
                   </td>
                   <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {contact.source.replace(/_/g, ' ')}

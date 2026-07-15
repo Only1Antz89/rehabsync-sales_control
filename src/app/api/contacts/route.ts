@@ -5,6 +5,7 @@ import type { CrmStage } from '@/db';
 import { isResponse, requireSession } from '@/lib/route-auth';
 import { recordAudit } from '@/lib/audit';
 import { buildContactConditions } from '@/lib/contact-query';
+import { recomputeLeadScore } from '@/lib/lead-score';
 
 export async function GET(req: Request) {
   const session = await requireSession();
@@ -12,6 +13,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const conditions = buildContactConditions(url.searchParams.get('q'), url.searchParams.get('stage'));
+  const sortByScore = url.searchParams.get('sort') === 'score';
 
   const rows = await getDb()
     .select({
@@ -25,13 +27,14 @@ export async function GET(req: Request) {
       ownerName: crmContacts.ownerName,
       estimatedValuePence: crmContacts.estimatedValuePence,
       tags: crmContacts.tags,
+      leadScore: crmContacts.leadScore,
       lastContactedAt: crmContacts.lastContactedAt,
       createdAt: crmContacts.createdAt,
       updatedAt: crmContacts.updatedAt,
     })
     .from(crmContacts)
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(crmContacts.updatedAt))
+    .orderBy(sortByScore ? desc(crmContacts.leadScore) : desc(crmContacts.updatedAt), desc(crmContacts.updatedAt))
     .limit(500);
 
   return NextResponse.json({ contacts: rows });
@@ -83,5 +86,10 @@ export async function POST(req: Request) {
     .returning();
 
   await recordAudit(session, 'contact_created', 'crm_contact', inserted!.id, { email, stage });
+  const scored = await recomputeLeadScore(inserted!.id);
+  if (scored) {
+    inserted!.leadScore = scored.score;
+    inserted!.scoreFactors = scored.factors;
+  }
   return NextResponse.json({ contact: inserted }, { status: 201 });
 }

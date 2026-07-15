@@ -1,5 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { crmActivities, crmContacts, getDb, salesEmails } from '@/db';
+import { recomputeLeadScore } from './lead-score';
 
 export interface NormalizedInbound {
   fromEmail: string;
@@ -112,6 +113,8 @@ export async function ingestInboundEmail(payload: Record<string, unknown>): Prom
     .update(crmContacts)
     .set({ lastContactedAt: new Date(), updatedAt: new Date() })
     .where(eq(crmContacts.id, contact.id));
+  // An inbound reply is a strong intent signal — refresh the lead score.
+  await recomputeLeadScore(contact.id);
 
   return { matched: true, contactId: contact.id, ...(record?.id ? { emailId: record.id } : {}) };
 }

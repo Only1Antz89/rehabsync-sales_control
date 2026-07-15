@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isResponse, requireAdmin } from '@/lib/route-auth';
 import { recordAudit } from '@/lib/audit';
 import { mergeContacts } from '@/lib/contact-dedupe';
+import { recomputeLeadScore } from '@/lib/lead-score';
 
 interface MergeBody {
   primaryId?: unknown;
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
   const outcome = await mergeContacts(primaryId, mergeIds);
   if ('error' in outcome) return NextResponse.json({ error: outcome.error }, { status: 400 });
 
+  // The survivor absorbed the duplicates' deals/emails/replies — refresh its score.
+  await recomputeLeadScore(primaryId);
   await recordAudit(session, 'contacts_merged', 'crm_contact', primaryId, {
     merged: outcome.result.merged,
     reassigned: outcome.result.reassigned,

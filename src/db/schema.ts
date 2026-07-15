@@ -104,6 +104,9 @@ export const crmContacts = pgTable(
     companyId: uuid('company_id'),
     // User-defined custom field values, keyed by sales_custom_fields.key (migration 0008).
     customFields: jsonb('custom_fields').$type<Record<string, unknown>>().default({}).notNull(),
+    // Derived lead score 0–100 + its per-factor breakdown (migration 0012).
+    leadScore: integer('lead_score').notNull().default(0),
+    scoreFactors: jsonb('score_factors').$type<Record<string, number>>().default({}).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -111,6 +114,7 @@ export const crmContacts = pgTable(
     index('crm_contacts_stage_idx').on(table.stage),
     index('crm_contacts_email_idx').on(table.email),
     index('crm_contacts_company_idx').on(table.companyId),
+    index('crm_contacts_score_idx').on(table.leadScore),
   ],
 );
 

@@ -23,6 +23,8 @@ interface Contact {
   scheduledAt: string | null;
   lastContactedAt: string | null;
   customFields: Record<string, unknown>;
+  leadScore: number;
+  scoreFactors: Record<string, number>;
   createdAt: string;
 }
 
@@ -370,6 +372,31 @@ export function ContactDetail({ id }: { id: string }) {
                 {saved && <span className="text-sm" style={{ color: 'var(--color-success-text)' }}>Saved.</span>}
               </div>
             </form>
+            <div className="mt-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                  Lead score
+                </span>
+                <Badge variant={contact.leadScore >= 70 ? 'success' : contact.leadScore >= 40 ? 'warning' : 'neutral'}>
+                  {contact.leadScore}/100
+                </Badge>
+              </div>
+              {Object.keys(contact.scoreFactors ?? {}).length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {Object.entries(contact.scoreFactors).map(([k, v]) => (
+                    <span
+                      key={k}
+                      className="text-[11px] px-1.5 py-0.5 rounded"
+                      style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                    >
+                      {v > 0 ? '+' : ''}
+                      {v} {k.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <p className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
               Source: {contact.source.replace(/_/g, ' ')}
               {contact.sourceDetail ? ` (${contact.sourceDetail})` : ''} · Added{' '}
