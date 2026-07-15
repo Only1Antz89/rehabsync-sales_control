@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { crmActivities, crmContacts, getDb, salesCaptureForms } from '@/db';
 import { assignOwner } from '@/lib/routing';
 import { recomputeLeadScore } from '@/lib/lead-score';
+import { createNotification, resolveOwnerEmail } from '@/lib/notifications';
 
 // Public lead-capture endpoint: honeypot + per-IP rate limit; no auth by design.
 const hits = new Map<string, { count: number; resetAt: number }>();
@@ -81,6 +82,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       body: `Auto-assigned to ${owner} by lead routing`,
       actorName: 'Routing',
     });
+    // Notify the assigned rep (best-effort — only if their name maps to a staff account).
+    const ownerEmail = await resolveOwnerEmail(owner).catch(() => null);
+    if (ownerEmail) {
+      await createNotification({
+        recipientEmail: ownerEmail,
+        kind: 'lead_assigned',
+        title: `New lead assigned: ${name}`,
+        body: `${name} (${email}) came in via ${form.name}.`,
+        entityType: 'crm_contact',
+        entityId: inserted.id,
+      }).catch(() => undefined);
+    }
   }
   if (inserted) await recomputeLeadScore(inserted.id).catch(() => undefined);
 

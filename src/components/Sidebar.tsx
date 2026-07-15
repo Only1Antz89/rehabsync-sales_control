@@ -2,7 +2,7 @@
 
 // Dark-navy sidebar shell adapted from the main RehabSync repo's (platform)/Sidebar.tsx so the
 // internal tools read as part of the platform family.
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -24,6 +24,8 @@ import {
   Handshake,
   Building2,
   CalendarClock,
+  Bell,
+  AlarmClock,
   Rocket,
   LogOut,
   Menu,
@@ -49,9 +51,11 @@ const ICONS = {
   customFields: SlidersHorizontal,
   automation: Timer,
   routing: Route,
+  sla: AlarmClock,
   admin: Settings,
   suppressions: MailX,
   audit: ScrollText,
+  notifications: Bell,
 } as const;
 
 interface NavItem {
@@ -67,7 +71,13 @@ interface NavGroup {
 
 function buildNav(isAdmin: boolean): NavGroup[] {
   const groups: NavGroup[] = [
-    { groupName: 'Overview', items: [{ label: 'Dashboard', href: '/dashboard', icon: 'dashboard' }] },
+    {
+      groupName: 'Overview',
+      items: [
+        { label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+        { label: 'Notifications', href: '/notifications', icon: 'notifications' },
+      ],
+    },
     {
       groupName: 'CRM',
       items: [
@@ -105,6 +115,7 @@ function buildNav(isAdmin: boolean): NavGroup[] {
         { label: 'Custom fields', href: '/admin/custom-fields', icon: 'customFields' },
         { label: 'Automation', href: '/admin/automation', icon: 'automation' },
         { label: 'Lead routing', href: '/admin/routing', icon: 'routing' },
+        { label: 'Response SLA', href: '/admin/sla', icon: 'sla' },
         { label: 'Suppressions', href: '/admin/suppressions', icon: 'suppressions' },
         { label: 'Audit log', href: '/admin/audit', icon: 'audit' },
       ],
@@ -130,8 +141,27 @@ export function Sidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   const nav = buildNav(isAdmin);
+
+  useEffect(() => {
+    let alive = true;
+    const poll = () => {
+      fetch('/api/notifications')
+        .then((res) => (res.ok ? res.json() : { unread: 0 }))
+        .then((d: { unread?: number }) => {
+          if (alive) setUnread(d.unread ?? 0);
+        })
+        .catch(() => undefined);
+    };
+    poll();
+    const t = setInterval(poll, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [pathname]);
 
   async function signOut() {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
@@ -178,6 +208,14 @@ export function Sidebar({ user }: { user: SidebarUser }) {
                   >
                     <Icon size={16} className="shrink-0" />
                     <span className="truncate">{item.label}</span>
+                    {item.href === '/notifications' && unread > 0 && (
+                      <span
+                        className="ml-auto inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5 min-w-5 h-5"
+                        style={{ backgroundColor: 'var(--brand-primary)', color: '#ffffff' }}
+                      >
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    )}
                   </a>
                 );
               })}

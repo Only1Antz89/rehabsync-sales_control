@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { getDb, salesCronJobs } from '@/db';
 import { processSequences } from './sequences';
 import { processCampaigns } from './campaigns';
+import { evaluateSla } from './sla';
 
 export interface CronJobMeta {
   key: string;
@@ -13,11 +14,13 @@ export interface CronJobMeta {
 export const CRON_JOBS: CronJobMeta[] = [
   { key: 'sequences', label: 'Sequences', description: 'Advance due sequence steps (automated emails + follow-up tasks).' },
   { key: 'campaigns', label: 'Campaigns', description: 'Send the next batch of scheduled email campaigns.' },
+  { key: 'sla', label: 'SLA checks', description: 'Flag new leads left unanswered past the first-response threshold.' },
 ];
 
 const RUNNERS: Record<string, () => Promise<Record<string, unknown>>> = {
   sequences: async () => processSequences(),
   campaigns: async () => processCampaigns(),
+  sla: async () => evaluateSla(),
 };
 
 export function isKnownJob(key: string): key is string {

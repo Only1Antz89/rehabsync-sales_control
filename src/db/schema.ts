@@ -478,6 +478,37 @@ export const salesCronJobs = pgTable('sales_cron_jobs', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ── In-app notifications + SLA first-response settings ─────────────────────────────────
+export const NOTIFICATION_KINDS = ['sla_breach', 'lead_assigned', 'system'] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+
+export const salesNotifications = pgTable(
+  'sales_notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    recipientEmail: varchar('recipient_email', { length: 255 }).notNull(),
+    kind: varchar('kind', { length: 30 }).notNull(),
+    title: varchar('title', { length: 200 }).notNull(),
+    body: text('body'),
+    entityType: varchar('entity_type', { length: 40 }),
+    entityId: uuid('entity_id'),
+    readAt: timestamp('read_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('sales_notifications_recipient_idx').on(table.recipientEmail, table.readAt),
+    index('sales_notifications_dedupe_idx').on(table.kind, table.entityId, table.recipientEmail),
+  ],
+);
+
+export const salesSlaSettings = pgTable('sales_sla_settings', {
+  id: integer('id').primaryKey().default(1),
+  enabled: boolean('enabled').notNull().default(false),
+  firstResponseHours: integer('first_response_hours').notNull().default(24),
+  updatedBy: varchar('updated_by', { length: 255 }),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // ── Meeting booking: scheduled meetings against a contact ──────────────────────────────
 export const MEETING_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const;
 export type MeetingStatus = (typeof MEETING_STATUSES)[number];
