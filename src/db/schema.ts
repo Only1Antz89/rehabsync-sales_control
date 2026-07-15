@@ -231,11 +231,19 @@ export const salesEmails = pgTable(
     sentAt: timestamp('sent_at'),
     openedAt: timestamp('opened_at'),
     clickedAt: timestamp('clicked_at'),
+    // Two-way email (migration 0011): 'outbound' (sent by us) | 'inbound' (a contact's reply).
+    direction: varchar('direction', { length: 10 }).notNull().default('outbound'),
+    fromEmail: varchar('from_email', { length: 255 }),
+    bodyText: text('body_text'),
+    bodyHtml: text('body_html'),
+    inReplyTo: varchar('in_reply_to', { length: 255 }),
+    receivedAt: timestamp('received_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [
     index('sales_emails_contact_idx').on(table.contactId),
     index('sales_emails_msg_idx').on(table.messageId),
+    index('sales_emails_direction_idx').on(table.contactId, table.direction),
   ],
 );
 

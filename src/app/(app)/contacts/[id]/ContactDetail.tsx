@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MessageSquare, Phone, Mail, ArrowRightLeft, CalendarClock, CheckSquare } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Phone, Mail, Reply, ArrowRightLeft, CalendarClock, CheckSquare } from 'lucide-react';
 import { Badge, Button, Card, Input } from '@/components/ui';
 import { STAGE_LABELS, STAGE_ORDER, stageVariant } from '@/lib/stages';
 
@@ -46,6 +46,7 @@ interface Task {
 function activityIcon(type: string) {
   if (type === 'stage_change') return <ArrowRightLeft size={14} />;
   if (type === 'call' || type === 'call_scheduled') return <Phone size={14} />;
+  if (type === 'email_in') return <Reply size={14} />;
   if (type === 'email') return <Mail size={14} />;
   if (type === 'meeting') return <CalendarClock size={14} />;
   return <MessageSquare size={14} />;
