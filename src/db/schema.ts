@@ -478,6 +478,57 @@ export const salesCronJobs = pgTable('sales_cron_jobs', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ── Quotes / proposals with line items ─────────────────────────────────────────────────
+export const QUOTE_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'expired'] as const;
+export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+
+export const salesQuotes = pgTable(
+  'sales_quotes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    number: varchar('number', { length: 20 }).notNull(),
+    title: varchar('title', { length: 200 }).notNull(),
+    contactId: uuid('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+    companyId: uuid('company_id'),
+    dealId: uuid('deal_id').references(() => salesDeals.id, { onDelete: 'set null' }),
+    status: varchar('status', { length: 20 }).notNull().default('draft'),
+    currency: varchar('currency', { length: 3 }).notNull().default('GBP'),
+    subtotalPence: integer('subtotal_pence').notNull().default(0),
+    discountPence: integer('discount_pence').notNull().default(0),
+    taxRatePct: integer('tax_rate_pct').notNull().default(0),
+    taxPence: integer('tax_pence').notNull().default(0),
+    totalPence: integer('total_pence').notNull().default(0),
+    notes: text('notes'),
+    validUntil: date('valid_until'),
+    createdBy: varchar('created_by', { length: 255 }),
+    sentAt: timestamp('sent_at'),
+    acceptedAt: timestamp('accepted_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('sales_quotes_number_idx').on(table.number),
+    index('sales_quotes_status_idx').on(table.status),
+    index('sales_quotes_contact_idx').on(table.contactId),
+  ],
+);
+
+export const salesQuoteLineItems = pgTable(
+  'sales_quote_line_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    quoteId: uuid('quote_id')
+      .notNull()
+      .references(() => salesQuotes.id, { onDelete: 'cascade' }),
+    description: varchar('description', { length: 300 }).notNull(),
+    quantity: integer('quantity').notNull().default(1),
+    unitPricePence: integer('unit_price_pence').notNull().default(0),
+    lineTotalPence: integer('line_total_pence').notNull().default(0),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (table) => [index('sales_quote_line_items_quote_idx').on(table.quoteId)],
+);
+
 // ── In-app notifications + SLA first-response settings ─────────────────────────────────
 export const NOTIFICATION_KINDS = ['sla_breach', 'lead_assigned', 'system'] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

@@ -24,6 +24,7 @@ import {
   Handshake,
   Building2,
   CalendarClock,
+  ReceiptText,
   Bell,
   AlarmClock,
   Rocket,
@@ -37,6 +38,7 @@ const ICONS = {
   dashboard: LayoutDashboard,
   pipeline: KanbanSquare,
   deals: Handshake,
+  quotes: ReceiptText,
   provisioning: Rocket,
   companies: Building2,
   contacts: Users,
@@ -83,6 +85,7 @@ function buildNav(isAdmin: boolean): NavGroup[] {
       items: [
         { label: 'Pipeline', href: '/pipeline', icon: 'pipeline' },
         { label: 'Deals', href: '/deals', icon: 'deals' },
+        { label: 'Quotes', href: '/quotes', icon: 'quotes' },
         { label: 'Provisioning', href: '/provisioning', icon: 'provisioning' },
         { label: 'Companies', href: '/companies', icon: 'companies' },
         { label: 'Contacts', href: '/contacts', icon: 'contacts' },
